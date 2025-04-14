@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { EventSource } from "eventsource";
+import { Buffer } from 'buffer';
+import { argv, exit, stdin } from 'process';
 
 // -- Configuration ----------------------------------
 
@@ -31,17 +33,17 @@ interface Config {
 function parseConfig(): Config {
   // Parse all CLI args into a map
   const cliArgs = new Map<string, string[]>();
-  for (let i = 2; i < process.argv.length; i++) {
-    const arg = process.argv[i];
+  for (let i = 2; i < argv.length; i++) {
+    const arg = argv[i];
     if (arg.startsWith('--')) {
       const [key, value] = arg.slice(2).split('=');
       if (value) {
         const values = cliArgs.get(key) || [];
         values.push(value);
         cliArgs.set(key, values);
-      } else if (i + 1 < process.argv.length && !process.argv[i + 1].startsWith('--')) {
+      } else if (i + 1 < argv.length && !argv[i + 1].startsWith('--')) {
         const values = cliArgs.get(key) || [];
-        values.push(process.argv[++i]);
+        values.push(argv[++i]);
         cliArgs.set(key, values);
       }
     }
@@ -139,16 +141,16 @@ async function startBridge() {
   try {
     await initializeSSEConnection();
 
-    process.stdin.on("data", forwardStdioMessage);
-    process.stdin.on("end", () => {
+    stdin.on("data", forwardStdioMessage);
+    stdin.on("end", () => {
       debug("⛔ STDIN closed. Exiting...");
-      process.exit(0);
+      exit(0);
     });
 
     debug("🚀 MCP Bridge running. Listening via STDIO...");
   } catch (err) {
     debug("❌ Bridge initialization failed:", err);
-    process.exit(1);
+    exit(1);
   }
 }
 

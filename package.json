@@ -6,22 +6,31 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "mcp-bridge": "./cli.js"
+    "mcp-bridge": "cli.js"
   },
   "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "A lightweight bridge that connects [Claude Desktop](https://www.anthropic.com/index/claude-desktop) via **STDIO** to any MCP-compatible backend using **SSE (Server-Sent Events)**.",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
+    "@types/eventsource": "^1.1.15",
     "eventsource": "^3.0.6",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
+    "@types/node": "^22.14.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kevinvincent/mcp-bridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kevinvincent/mcp-bridge/issues"
+  },
+  "homepage": "https://github.com/kevinvincent/mcp-bridge#readme"
 }
