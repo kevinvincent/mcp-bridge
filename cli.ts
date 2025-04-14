@@ -3,14 +3,77 @@ import { EventSource } from "eventsource";
 
 // -- Configuration ----------------------------------
 
-let baseUrl: string =
-  process.argv[2] ?? process.env["MCP_URL"] ?? "http://localhost:4000";
+interface ConfigOption {
+  cliFlag: string;
+  default?: string;
+  description: string;
+  isArray?: boolean;
+}
 
-if (!baseUrl.startsWith("http")) baseUrl = `http://${baseUrl}`;
-baseUrl = baseUrl.replace(/\/$/, "");
+const CONFIG_OPTIONS: Record<string, ConfigOption> = {
+  baseUrl: {
+    cliFlag: '--url',
+    default: 'http://localhost:4000',
+    description: 'Base URL for the MCP server'
+  },
+  header: {
+    cliFlag: '--header',
+    description: 'Add HTTP header (format: "Name: Value")',
+    isArray: true
+  }
+};
 
-const sseUrl = `${baseUrl}/sse`;
-let messagePostUrl = `${baseUrl}/message`;
+interface Config {
+  baseUrl: string;
+  headers: Record<string, string>;
+}
+
+function parseConfig(): Config {
+  // Parse all CLI args into a map
+  const cliArgs = new Map<string, string[]>();
+  for (let i = 2; i < process.argv.length; i++) {
+    const arg = process.argv[i];
+    if (arg.startsWith('--')) {
+      const [key, value] = arg.slice(2).split('=');
+      if (value) {
+        const values = cliArgs.get(key) || [];
+        values.push(value);
+        cliArgs.set(key, values);
+      } else if (i + 1 < process.argv.length && !process.argv[i + 1].startsWith('--')) {
+        const values = cliArgs.get(key) || [];
+        values.push(process.argv[++i]);
+        cliArgs.set(key, values);
+      }
+    }
+  }
+
+  // Parse headers from CLI arguments
+  const headers: Record<string, string> = {};
+  const headerArgs = cliArgs.get('header') || [];
+
+  headerArgs.forEach(header => {
+    const [name, ...valueParts] = header.split(':');
+    const value = valueParts.join(':').trim();
+    if (name && value) {
+      headers[name.trim()] = value;
+    }
+  });
+
+  // Get base URL from CLI args or default
+  const urlValues = cliArgs.get('url');
+  let baseUrl = urlValues?.[0] ?? CONFIG_OPTIONS.baseUrl.default ?? '';
+  if (!baseUrl.startsWith('http')) {
+    baseUrl = `http://${baseUrl}`;
+  }
+  baseUrl = baseUrl.replace(/\/$/, '');
+
+  return { baseUrl, headers };
+}
+
+// Initialize configuration
+const config = parseConfig();
+const sseUrl = `${config.baseUrl}/sse`;
+let messagePostUrl = `${config.baseUrl}/message`;
 
 const debug = console.error; // Debug output to stderr
 const sendToClaude = console.log; // Output to Claude via stdout
@@ -29,7 +92,7 @@ function initializeSSEConnection(): Promise<void> {
     };
 
     source.addEventListener("endpoint", (e) => {
-      const url = new URL(baseUrl);
+      const url = new URL(config.baseUrl);
       messagePostUrl = `${url.protocol}//${url.host}${e.data}`;
       debug(`📡 Updated message POST endpoint → ${messagePostUrl}`);
     });
@@ -52,7 +115,10 @@ async function forwardStdioMessage(buffer: Buffer) {
   try {
     const response = await fetch(messagePostUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        'Content-Type': 'application/json',
+        ...config.headers
+      },
       body: payload
     });
 
@@ -67,7 +133,8 @@ async function forwardStdioMessage(buffer: Buffer) {
 // -- Start the STDIO Bridge -------------------------
 
 async function startBridge() {
-  debug(`🌉 Launching MCP Bridge → ${baseUrl}`);
+  debug(`🌉 Launching MCP Bridge → ${config.baseUrl}`);
+  debug(`📝 Using headers:`, config.headers);
 
   try {
     await initializeSSEConnection();
